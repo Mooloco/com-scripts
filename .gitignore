@@ -1,0 +1,13 @@
+# Windows
+Thumbs.db
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Build
+build/
+dist/
+
+# Secrets
+.env
