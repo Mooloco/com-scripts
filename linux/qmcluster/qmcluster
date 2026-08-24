@@ -1,0 +1,155 @@
+#!/bin/bash
+
+# ============================================================
+# qmcluster - Proxmox VE Cluster VM Manager
+# Automatically locate VM node and execute via pvesh
+# ============================================================
+
+set -u
+
+COMMAND="${1:-}"
+VMID="${2:-}"
+
+# ------------------------------------------------------------
+# Help
+# ------------------------------------------------------------
+
+usage() {
+    echo "Usage:"
+    echo "  qmcluster <command> <vmid>"
+    echo
+    echo "Commands:"
+    echo "  start       Start VM"
+    echo "  stop        Stop VM immediately"
+    echo "  shutdown    Gracefully shutdown VM"
+    echo "  reboot      Reboot VM"
+    echo "  reset       Reset VM"
+    echo "  suspend     Suspend VM"
+    echo "  resume      Resume VM"
+    echo "  status      Show VM status"
+    echo "  config      Show VM configuration"
+    echo
+    echo "Examples:"
+    echo "  qmcluster start 109"
+    echo "  qmcluster shutdown 109"
+    echo "  qmcluster status 109"
+}
+
+if [ "$#" -ne 2 ]; then
+    usage
+    exit 1
+fi
+
+# ------------------------------------------------------------
+# Check VMID
+# ------------------------------------------------------------
+
+if ! [[ "$VMID" =~ ^[0-9]+$ ]]; then
+    echo "[ERROR] Invalid VMID: $VMID"
+    exit 1
+fi
+
+# ------------------------------------------------------------
+# Find VM node
+# ------------------------------------------------------------
+
+VM_CONFIG=""
+
+for NODE_PATH in /etc/pve/nodes/*/qemu-server/"${VMID}".conf; do
+    if [ -f "$NODE_PATH" ]; then
+        VM_CONFIG="$NODE_PATH"
+        break
+    fi
+done
+
+if [ -z "$VM_CONFIG" ]; then
+    echo "[ERROR] VM $VMID not found in cluster."
+    exit 1
+fi
+
+# Extract node name
+NODE=$(echo "$VM_CONFIG" | awk -F/ '{print $5}')
+
+if [ -z "$NODE" ]; then
+    echo "[ERROR] Failed to determine node for VM $VMID."
+    exit 1
+fi
+
+echo "[INFO] VM $VMID is on node: $NODE"
+
+# ------------------------------------------------------------
+# Execute command
+# ------------------------------------------------------------
+
+case "$COMMAND" in
+
+    start)
+        ACTION="start"
+        ;;
+
+    stop)
+        ACTION="stop"
+        ;;
+
+    shutdown)
+        ACTION="shutdown"
+        ;;
+
+    reboot)
+        ACTION="reboot"
+        ;;
+
+    reset)
+        ACTION="reset"
+        ;;
+
+    suspend)
+        ACTION="suspend"
+        ;;
+
+    resume)
+        ACTION="resume"
+        ;;
+
+    status)
+        ACTION="status/current"
+        ;;
+
+    config)
+        echo "[INFO] VM configuration:"
+        pvesh get "/nodes/$NODE/qemu/$VMID/config"
+        exit $?
+        ;;
+
+    *)
+        echo "[ERROR] Unknown command: $COMMAND"
+        echo
+        usage
+        exit 1
+        ;;
+
+esac
+
+# ------------------------------------------------------------
+# Execute through pvesh
+# ------------------------------------------------------------
+
+if [ "$COMMAND" = "status" ]; then
+
+    pvesh get "/nodes/$NODE/qemu/$VMID/status/current"
+
+else
+
+    pvesh create "/nodes/$NODE/qemu/$VMID/status/$ACTION"
+
+fi
+
+RET=$?
+
+if [ $RET -eq 0 ]; then
+    echo "[OK] Command '$COMMAND' executed successfully on node '$NODE'."
+else
+    echo "[ERROR] Command '$COMMAND' failed."
+fi
+
+exit $RET
