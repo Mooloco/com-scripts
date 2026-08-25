@@ -8,6 +8,10 @@
 
 用于删除当前登录的用户的已知hosts，注意，会直接删除整个known_hosts文件。
 
+**ssh-motd**
+
+Windows OpenSSH 登录横幅脚本（PowerShell 7）。交互式 SSH 登录时显示系统信息 + Windows Logo；带交互式守卫，SFTP / SCP / rsync / git 等非交互会话自动跳过，不会污染传输协议流。部署见 `ssh-motd/README.md`。
+
 **Smartcopy.ps1**
 
 Mooloco 专属智能复制与时间锁工具 (V3 终极版)
